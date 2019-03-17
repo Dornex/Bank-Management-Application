@@ -1,0 +1,18 @@
+7
+add_card 1234 5432 09/19 123
+add_card 4321 4123 19/09 200
+add_card 2221 5221 31/09 231
+add_card 3111 9881 22/09 554
+add_card 9123 2322 13/09 300
+insert_card 1234 5432
+recharge 1234 20
+recharge 1234 30
+insert_card 1234 5432
+cash_withdrawal 1234 13
+insert_card 1234 5432
+cash_withdrawal 1234 21
+insert_card 4321 4123
+balance_inquiry 4321
+pin_change
+
+
