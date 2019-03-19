@@ -3,7 +3,7 @@
 #include <string.h>
 
 typedef struct history{
-	char istoric[70];
+	char istoric[70]; 
 	struct history *nextHistory;
 }history;
 
@@ -146,74 +146,106 @@ void afisare(LSC *lsc)
 		while(c!=NULL)
 		{
 			printf("%s %s %d %s \n", c->card_number, c->pin, c->cvv, c->expiry_date);
+			history *h = c->History;
+			while(h!=NULL)
+			{
+				printf("{%s}, ", h->istoric);
+				h = h->nextHistory;
+			}
 			c = c->nextCard;
 		}
 		p = p->nextLSC;
 	}
 }
 
+void creare_history(char *hist, char rezultat[10], char operatie[15], char card_number_sursa[30], char card_number_dest[30], char pin[6], int sum)
+{
+	if(sum == -1) sprintf(hist, "%s %s %s %s%s", rezultat, operatie, card_number_sursa, card_number_dest, pin);
+	else sprintf(hist, "%s %s %s %s%s%d", rezultat, operatie, card_number_sursa, card_number_dest, pin, sum);
+}
+
+void add_history(CARD **card, char History[70])
+{
+	history *elem = (history*)calloc(1, sizeof(history));
+ 	strcpy(elem->istoric, History);
+ 	elem->nextHistory = (*card)->History;
+ 	(*card)->History = elem;
+}
+
 void insert_card(LSC *lsc, char card_number[30], char pin[6])
 {
 	CARD *c = find_card(lsc, card_number);
 
+	char hist[70];
 	if(c->strike == 3)
 	{
 		printf("The card is blocked. Please contact the administrator\n");
-		strcpy(c->status, "BLOCKED");
+		creare_history(hist, "FAIL", "insert_card", card_number, "", pin, -1);
+		add_history(&c, hist);
 	}
 	else if(strcmp(c->pin, pin) != 0)
 		{
 			printf("Invalid PIN.\n");
+			creare_history(hist, "FAIL", "insert_card", card_number, "", pin, -1);
 			c->strike++;
+			add_history(&c, hist);
 		}
 	else if(strcmp(c->pin, c->pin_initial) == 0)
-	{
-		c->inserted = 1;
-		c->strike = 0;
-		printf("You must change your PIN!\n");
-		add_history()
-	}
-	else if(strcmp(c->pin, c->pin_initial) != 0) c->inserted = 1;
-}
+		{
+			c->inserted = 1;
+			c->strike = 0;
+			printf("You must change your PIN!\n");
+			creare_history(hist, "SUCCES", "insert_card", card_number, "", pin, -1);
+			add_history(&c, hist);
+		}
+	else if(strcmp(c->pin, c->pin_initial) != 0) 
+		{
+			creare_history(hist, "SUCCES", "insert_card", card_number, "", pin, -1);
+			add_history(&c, hist);
+		}
+}	
 
 void cancel(LSC *lsc, char card_number[30])
 {
 	CARD *c = find_card(lsc, card_number);
-	c -> inserted = 0;
+
+	char hist[70];
+	creare_history(hist, "SUCCES", "cancel", card_number, "", "", -1);
+	add_history(&c, hist);
 }
 
 void recharge(LSC *lsc, char card_number[30], unsigned int suma)
 {
 	CARD* c = find_card(lsc, card_number);
-	if(c->inserted == 1)
-	{
-		if(suma % 10 != 0) printf("The added amount must be multiple of 10!\n");
-		else
-		{
+	char hist[70];
 
-			c->balance += suma;
-			printf("Sold curent: %d\n", c->balance);
-		}
-		cancel(lsc, card_number);
+	if(suma % 10 != 0)
+	{
+		printf("The added amount must be multiple of 10!\n");
+		creare_history(hist, "FAIL", "recharge", card_number, "", "", suma);
+		add_history(&c, hist);	
+	} 
+	else
+	{
+		c->balance += suma;
+		printf("Sold curent: %d\n", c->balance);
+		creare_history(hist, "SUCCES", "recharge", card_number, "", "", suma);
+		add_history(&c, hist);	
 	}
-	else printf("The card is not inserted!\n");
+	cancel(lsc, card_number);
 }
 
 void cash_withdrawal(LSC *lsc, char card_number[30], unsigned int suma)
 {
 	CARD* c = find_card(lsc, card_number);
-	if(c->inserted == 1)
+	if(suma > c->balance) printf("Insufficient funds!\n");
+	else if(suma % 10 != 0) printf("The requested amount must be multiple of 10!\n");
+	else
 	{
-		if(suma > c->balance) printf("Insufficient funds!\n");
-		else if(suma % 10 != 0) printf("The requested amount must be multiple of 10!\n");
-		else
-		{
-			c->balance -= suma;
-			printf("Sold ramas: %d\n", c->balance);
-		}
-		cancel(lsc, card_number);
+		c->balance -= suma;
+		printf("Sold ramas: %d\n", c->balance);
 	}
-	else printf("The card is not inserted!\n");
+	cancel(lsc, card_number);
 }
 
 void balance_inquiry(LSC *lsc, char card_number[30])
@@ -316,6 +348,7 @@ int main()
 			}
 			strcpy(optiune, "");
 	}
+	afisare(lsc);
 
 	return 0;
 }
