@@ -27,6 +27,7 @@ typedef struct LSC{
 	unsigned int poz;
 	unsigned int afis_zero;
 	unsigned int nr_max_carduri;
+	unsigned int max_poz;
 	struct LSC *nextLSC;
 	CARD *nextCard;
 }LSC;
@@ -100,6 +101,50 @@ CARD* find_card(LSC *lsc, char card_number[30])
 	return c;
 }
 
+
+void delete_card(LSC **lsc, char card_number[30])
+{
+	LSC *p = (*lsc);
+	while(p!=NULL)
+	{
+		CARD *card = p->nextCard;
+		if(card->card_number == card_number)
+		{
+			CARD *sters = card;
+			card = card->nextCard;
+			free(sters);
+		}
+
+		CARD *p = card;
+		while(p->nextCard != NULL && p->nextCard->card_number != card_number)
+				p = p->nextCard;
+		if(p->nextCard != NULL)
+		{
+			CARD *sters = p->nextCard;
+			p->nextCard = p->nextCard->nextCard;
+			free(sters);
+		}
+	}	
+}
+
+CARD *add_info_card(char card_number[30], char pin[6], char expiry_date[10], int cvv, char nume[30], int poz)
+{
+	CARD *card = (CARD *)calloc(1, sizeof(CARD));
+
+	strcpy(card -> status, "NEW");
+	strcpy(card -> card_number, card_number);
+	strcpy(card -> pin, pin);
+	strcpy(card -> pin_initial, pin);
+	strcpy(card->expiry_date, expiry_date);
+	strcpy(card->nume, nume);
+	card -> strike = 0;
+	card -> poz = poz;
+	card -> inserted = 0;
+	card -> cvv = cvv;
+	card -> balance = 0;
+	return card;
+}
+
 void add_card(char card_number[30], char pin[6], char expiry_date[10], int cvv, char nume[30], LSC **lsc)
 {
 	unsigned int poz = calculare_pozitie((*lsc), card_number);
@@ -116,18 +161,8 @@ void add_card(char card_number[30], char pin[6], char expiry_date[10], int cvv, 
 			p = p->nextLSC;
 		}
 
-		strcpy(card -> status, "NEW");
-		strcpy(card -> card_number, card_number);
-		strcpy(card -> pin, pin);
-		strcpy(card -> pin_initial, pin);
-		strcpy(card->expiry_date, expiry_date);
-		strcpy(card->nume, nume);
-		card -> strike = 0;
-		card->poz = poz;
-		card -> inserted = 0;
-		card -> cvv = cvv;
-		card -> balance = 0;
-
+		card = add_info_card(card_number, pin, expiry_date, cvv, nume, poz);
+		
 		if(p == NULL)
 		{
 			add_LSC(lsc, poz);
@@ -350,6 +385,7 @@ int main()
 		int cvv = 0;
 
 		fscanf(fisier_in, "%s ", optiune);
+		//printf("opt: %s\n", optiune);
 		if(strcmp(optiune, "add_card") == 0)
 		{
 			fscanf(fisier_in, "%s %s %s %d", card_number, pin, expiry_date, &cvv);
@@ -391,8 +427,13 @@ int main()
 			}
 			else if(strcmp(optiune, "show") == 0)
 			{
-				fscanf(fisier_out, "%s", card_number);
 				show(lsc);
+				//else show_card(lsc, card_number);
+			}
+			else if(strcmp(optiune, "delete_card") == 0)
+			{
+				fscanf(fisier_in, "%s", card_number);
+				delete_card(&lsc, card_number);
 			}
 			strcpy(optiune, "");
 	}
