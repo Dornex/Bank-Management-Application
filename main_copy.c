@@ -158,6 +158,7 @@ void add_card(char card_number[30], char pin[6], char expiry_date[10], int cvv, 
 {
 	unsigned int poz = calculare_pozitie((*lsc), card_number);
 	if(poz == 0) (*lsc)->afis_zero = 1;
+
 	if(verif_duplicate((*lsc), poz, card_number) == 1) printf("The card already exists!\n");
 	else
 	{
@@ -171,7 +172,6 @@ void add_card(char card_number[30], char pin[6], char expiry_date[10], int cvv, 
 		}
 
 		card = add_info_card(card_number, pin, expiry_date, cvv, nume, poz);
-		
 		if(p == NULL)
 		{
 			add_LSC(lsc, poz);
@@ -183,6 +183,20 @@ void add_card(char card_number[30], char pin[6], char expiry_date[10], int cvv, 
 			p -> nextCard = card;
 		}
 	}
+}
+
+void show_card(LSC *lsc, char card_number[30])
+{
+	CARD *card = find_card(lsc, card_number);
+	printf("(card number:%s, PIN: %s, expiry date: %s, CVV: %d, balance: %d, status: %s, history:[", card->card_number, card->pin, card->expiry_date, card->cvv, card->balance, card->status);
+	history *h = card->History;
+	while(h!=NULL)
+	{
+		if(h->nextHistory->istoric == NULL) printf("%s", h->istoric);
+		else printf("%s, ", h->istoric);
+		h = h->nextHistory;
+	}
+	printf("])\n");
 }
 
 void show(LSC *lsc)
@@ -246,6 +260,7 @@ void insert_card(LSC *lsc, char card_number[30], char pin[6])
 	{
 		printf("The card is blocked. Please contact the administrator\n");
 		sprintf(hist, "%s %s %s %s%s", "(FAIL,", "insert_card", card_number, pin,")");
+		// c->status = "BLOCKED";
 		add_history(&c, hist);
 	}
 	else if(strcmp(c->pin, pin) != 0)
@@ -268,6 +283,9 @@ void insert_card(LSC *lsc, char card_number[30], char pin[6])
 void cancel(LSC *lsc, char card_number[30])
 {
 	CARD *c = find_card(lsc, card_number);
+	char hist[70];
+	sprintf(hist, "%s %s %s%s", "(SUCCESS,", "cancel", card_number,")");
+	add_history(&c, hist);
 }
 
 void recharge(LSC *lsc, char card_number[30], unsigned int suma)
@@ -287,7 +305,6 @@ void recharge(LSC *lsc, char card_number[30], unsigned int suma)
 		sprintf(hist, "%s %s %s %d%s", "(SUCCESS,", "recharge", card_number, suma,")");
 	}
 	add_history(&c, hist);
-	cancel(lsc, card_number);
 }
 
 void cash_withdrawal(LSC *lsc, char card_number[30], unsigned int suma)
@@ -312,7 +329,6 @@ void cash_withdrawal(LSC *lsc, char card_number[30], unsigned int suma)
 		sprintf(hist, "%s %s %s %d%s", "(SUCCESS,", "cash_withdrawal", card_number, suma,")");		
 	}
 	add_history(&c, hist);
-	cancel(lsc, card_number);
 }
 
 void balance_inquiry(LSC *lsc, char card_number[30])
@@ -323,7 +339,6 @@ void balance_inquiry(LSC *lsc, char card_number[30])
 	printf("Sold: %d\n", c->balance);
 	sprintf(hist, "%s %s %s%s", "(SUCCESS,", "balance_inquiry", card_number,")");
 	add_history(&c, hist);
-	cancel(lsc, card_number);
 }
 
 void pin_change(LSC *lsc, char card_number[30], char pin[6])
@@ -342,7 +357,6 @@ void pin_change(LSC *lsc, char card_number[30], char pin[6])
 		strcpy(c->pin, pin);
 	}
 	add_history(&c, hist);
-	cancel(lsc, card_number);
 }
 
 void transfer_funds(LSC* lsc, char card_number_source[30], char card_number_dest[30], unsigned int suma)
@@ -371,16 +385,15 @@ void transfer_funds(LSC* lsc, char card_number_source[30], char card_number_dest
 		}
 	add_history(&card_sursa, hist);
 	add_history(&card_dest, hist);
-	cancel(lsc, card_number_source);
 }
 
-void reverse_transaction(LSC *lsc, char card_number_sursa[30], char card_number_dest[30], int suma)
-{
-	CARD* card_sursa = find_card(lsc, card_number_sursa);
-	CARD* card_dest = find_card(lsc, card_number_dest);
+// void reverse_transaction(LSC *lsc, char card_number_sursa[30], char card_number_dest[30], int suma)
+// {
+// 	CARD* card_sursa = find_card(lsc, card_number_sursa);
+// 	CARD* card_dest = find_card(lsc, card_number_dest);
 
-	if(suma > card_dest->balance) printf("")
-}
+// 	if(suma > card_dest->balance) printf("")
+// }
 
 int main()
 {
@@ -397,12 +410,11 @@ int main()
 
 	while(!feof(fisier_in))
 	{
-		char optiune[20], expiry_date[20];
+		char optiune[30], expiry_date[20];
 		char card_number[30], pin[10];
 		int cvv = 0;
 
 		fscanf(fisier_in, "%s ", optiune);
-		//printf("opt: %s\n", optiune);
 		if(strcmp(optiune, "add_card") == 0)
 		{
 			fscanf(fisier_in, "%s %s %s %d", card_number, pin, expiry_date, &cvv);
@@ -444,8 +456,22 @@ int main()
 			}
 			else if(strcmp(optiune, "show") == 0)
 			{
-				show(lsc);
-				//else show_card(lsc, card_number);
+				int nr = 0;
+				strcpy(card_number, "-1");
+				fseek(fisier_in, -strlen(optiune)-1, SEEK_CUR);
+				fgets(optiune, 20,  fisier_in);
+				char *p = strtok(optiune, " ");
+
+				while(p!=NULL)
+				{
+					nr++;
+					if(nr == 1) strcpy(optiune, p);
+					if(nr == 2) strcpy(card_number, p);
+					p = strtok(NULL, " ");
+				}
+
+				if(strcmp(card_number, "-1") != 0) show_card(lsc, card_number);
+				else show(lsc);
 			}
 			else if(strcmp(optiune, "delete_card") == 0)
 			{
@@ -454,5 +480,8 @@ int main()
 			}
 			strcpy(optiune, "");
 	}
+	fclose(fisier_in);
+	fclose(fisier_out);
+
 	return 0;
 }
