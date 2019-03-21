@@ -3,7 +3,7 @@
 #include <string.h>
 
 typedef struct history{
-	char istoric[70]; 
+	char istoric[70];
 	struct history *nextHistory;
 }history;
 
@@ -117,7 +117,7 @@ void delete_card(LSC **lsc, char card_number[30])
 			}
 			else
 			{
-				while(d!=NULL && strcmp(d->card_number, card_number) != 0) 
+				while(d!=NULL && strcmp(d->card_number, card_number) != 0)
 				{
 					c = c->nextCard;
 					d = d->nextCard;
@@ -129,11 +129,11 @@ void delete_card(LSC **lsc, char card_number[30])
 					d = d->nextCard;
 					c->nextCard = d;
 					free(t);
-				}			
+				}
 			}
 		}
 		p = p->nextLSC;
-	}	
+	}
 }
 
 CARD *add_info_card(char card_number[30], char pin[6], char expiry_date[10], int cvv, char nume[30], int poz)
@@ -275,10 +275,10 @@ void insert_card(LSC *lsc, char card_number[30], char pin[6])
 			printf("You must change your PIN!\n");
 			sprintf(hist, "%s %s %s %s%s", "(SUCCESS,", "insert_card", card_number, pin,")");
 		}
-	else if(strcmp(c->pin, c->pin_initial) != 0) 
+	else if(strcmp(c->pin, c->pin_initial) != 0)
 			sprintf(hist, "%s %s %s %s%s", "(SUCCESS,", "insert_card", card_number, pin,")");
 	add_history(&c, hist);
-}	
+}
 
 void cancel(LSC *lsc, char card_number[30])
 {
@@ -297,7 +297,7 @@ void recharge(LSC *lsc, char card_number[30], unsigned int suma)
 	{
 		printf("The added amount must be multiple of 10!\n");
 		sprintf(hist, "%s %s %s %d%s", "(FAIL,", "recharge", card_number, suma,")");
-	} 
+	}
 	else
 	{
 		c->balance += suma;
@@ -313,7 +313,7 @@ void cash_withdrawal(LSC *lsc, char card_number[30], unsigned int suma)
 	char hist[70];
 
 	if(suma > c->balance)
-	{	
+	{
 		printf("Insufficient funds!\n");
 		sprintf(hist, "%s %s %s %d%s", "(FAIL,", "cash_withdrawal", card_number, suma,")");
 	}
@@ -326,7 +326,7 @@ void cash_withdrawal(LSC *lsc, char card_number[30], unsigned int suma)
 	{
 		c->balance -= suma;
 		printf("Sold ramas: %d\n", c->balance);
-		sprintf(hist, "%s %s %s %d%s", "(SUCCESS,", "cash_withdrawal", card_number, suma,")");		
+		sprintf(hist, "%s %s %s %d%s", "(SUCCESS,", "cash_withdrawal", card_number, suma,")");
 	}
 	add_history(&c, hist);
 }
@@ -346,7 +346,7 @@ void pin_change(LSC *lsc, char card_number[30], char pin[6])
 	CARD *c = find_card(lsc, card_number);
 	char hist[70];
 
-	if(strlen(pin)!=4) 
+	if(strlen(pin)!=4)
 	{
 		printf("Invalid PIN!\n");
 		sprintf(hist, "%s %s %s %s%s", "(FAIL,", "pin_change", card_number, pin,")");
@@ -365,23 +365,23 @@ void transfer_funds(LSC* lsc, char card_number_source[30], char card_number_dest
 	CARD* card_dest = find_card(lsc, card_number_dest);
 	char hist[70];
 
-	if(suma % 10 != 0) 
+	if(suma % 10 != 0)
 	{
-		printf("The trasnfered amount must be multiple of 10!\n"); 
+		printf("The trasnfered amount must be multiple of 10!\n");
 		sprintf(hist, "%s %s %s %s %d%s", "(FAIL,", "transfer_funds", card_number_source, card_number_dest, suma,")");
 	}
-	else if(suma > card_sursa->balance) 
+	else if(suma > card_sursa->balance)
 		{
 			printf("Insufficient funds!\n");
-			sprintf(hist, "%s %s %s %s %d%s", "(FAIL,", "transfer_funds", card_number_source, card_number_dest, suma,")");	
+			sprintf(hist, "%s %s %s %s %d%s", "(FAIL,", "transfer_funds", card_number_source, card_number_dest, suma,")");
 		}
 		else
 		{
-			card_sursa->balance -= suma; 
+			card_sursa->balance -= suma;
 			card_dest->balance += suma;
 			printf("Sold ramas: %d\n", card_sursa->balance);
 			printf("Sold dest: %d\n", card_dest->balance);
-			sprintf(hist, "%s %s %s %s %d%s", "(SUCCESS,", "transfer_funds", card_number_source, card_number_dest, suma,")");	
+			sprintf(hist, "%s %s %s %s %d%s", "(SUCCESS,", "transfer_funds", card_number_source, card_number_dest, suma,")");
 		}
 	add_history(&card_sursa, hist);
 	add_history(&card_dest, hist);
@@ -459,14 +459,14 @@ int main()
 				int nr = 0;
 				strcpy(card_number, "-1");
 				fseek(fisier_in, -strlen(optiune)-1, SEEK_CUR);
-				fgets(optiune, 20,  fisier_in);
+				fgets(optiune, 30,  fisier_in);
 				char *p = strtok(optiune, " ");
 
 				while(p!=NULL)
 				{
 					nr++;
 					if(nr == 1) strcpy(optiune, p);
-					if(nr == 2) strcpy(card_number, p);
+					if(nr == 2) {strcpy(card_number, p); card_number[strlen(card_number) - 1] = '\0';}
 					p = strtok(NULL, " ");
 				}
 
