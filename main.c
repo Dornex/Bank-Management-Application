@@ -238,7 +238,7 @@ void show(LC *lc, FILE *fisier_out, int poz_max, int afis_zero)
 						while(h!=NULL)
 						{
 							if(h->nextHistory->istoric == NULL) fprintf(fisier_out, "%s", h->istoric);
-							else if(strcmp(h->istoric, "") !=0)fprintf(fisier_out, "%s, ", h->istoric);
+							else fprintf(fisier_out, "%s, ", h->istoric);
 							h = h->nextHistory;
 						}
 						fprintf(fisier_out, "])\n");
@@ -261,8 +261,17 @@ void add_history(CARD **card, char History[70])
 {
 	history *elem = (history*)calloc(1, sizeof(history));
  	strcpy(elem->istoric, History);
- 	elem->nextHistory = (*card)->History;
- 	(*card)->History = elem;
+ 	if((*card)->History == NULL) 
+ 	{
+ 		elem->nextHistory = NULL;
+ 		(*card)->History = elem;
+
+ 	}
+ 	else 
+ 	{
+ 		elem -> nextHistory = (*card)->History;
+ 		(*card)->History = elem;
+ 	}
 }
 
 void insert_card(LC *lc, char card_number[30], char pin[6], FILE *fisier_out)
@@ -427,22 +436,20 @@ void transfer_funds(LC* lc, char card_number_source[30], char card_number_dest[3
 
 void remove_history(CARD **card, char hist[70])
 {
-	//LSC *p = (*lc)->infoLSC;
 	history *p = (*card)->History;
 	if(strcmp(p->istoric, hist) == 0)
 	{
-		history *aux = p;
-		p = p->nextHistory;
-		free(aux);
+		history *q = p;
+		p = p -> nextHistory;
+		free(q);
 	}
 	else
 	{
 		history *q = p;
-		while(strcmp(q->nextHistory->istoric, hist) != 0)
-			q = q->nextHistory;
-		history *aux =  q->nextHistory;
-		q->nextHistory = q->nextHistory->nextHistory;
-		free(aux);
+		while (strcmp(q->nextHistory->istoric, hist) != 0 && q) q = q->nextHistory;
+		history *a = q->nextHistory;
+		q->nextHistory = a->nextHistory;
+		free(a);
 	}
 }
 
@@ -457,10 +464,12 @@ void reverse_transaction(LC *lc, char card_number_source[30], char card_number_d
 	{
 		card_dest->balance -= suma;
 		card_source->balance += suma;
+
 		sprintf(hist, "%s %s %s %s %d%s", "(SUCCESS,", "reverse_transaction", card_number_source, card_number_dest, suma,")");
 		sprintf(hist2, "%s %s %s %s %d%s", "(SUCCESS,", "transfer_funds", card_number_source, card_number_dest, suma, ")");
-		add_history(&card_source, hist);
+
 		remove_history(&card_dest, hist2);
+		add_history(&card_source, hist);
 	}
 }
 
@@ -569,9 +578,10 @@ int main()
 			}
 			else if(strcmp(optiune, "reverse_transaction") == 0)
 			{
-				unsigned int suma;
+				int suma;
 				char card_number_source[30], card_number_dest[30];
 				fscanf(fisier_in, "%s %s %d", card_number_source, card_number_dest, &suma);
+				printf("%s %s %s %d\n", optiune, card_number_source, card_number_dest, suma);
 				reverse_transaction(lc, card_number_source, card_number_dest, suma, fisier_out);
 			}
 			strcpy(optiune, "");
