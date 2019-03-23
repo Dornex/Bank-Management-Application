@@ -123,7 +123,7 @@ void delete_card(LC **lc, char card_number[30], int *afis_zero)
 			{
 				p->nextCard = d;
 				free(c);
-				p->nr_carduri--;			
+				p->nr_carduri--;
 			}
 			else
 			{
@@ -158,6 +158,7 @@ CARD *add_info_card(char card_number[30], char pin[6], char expiry_date[10], cha
 	strcpy(card->expiry_date, expiry_date);
 	strcpy(card->nume, nume);
 	strcpy(card -> cvv, cvv);
+	card -> History = NULL;
 	card -> strike = 0;
 	card -> poz = poz;
 	card -> inserted = 0;
@@ -236,9 +237,10 @@ void show(LC *lc, FILE *fisier_out, int poz_max, int afis_zero)
 						fprintf(fisier_out, "(card number: %s, PIN: %s, expiry date: %s, CVV: %s, balance: %d, status: %s, history: [", c->card_number, c->pin, c->expiry_date, c->cvv, c->balance, c->status);
 						history *h = c->History;
 						while(h!=NULL)
-						{
-							if(h->nextHistory->istoric == NULL) fprintf(fisier_out, "%s", h->istoric);
-							else fprintf(fisier_out, "%s, ", h->istoric);
+                        {
+                            if(strcmp(h->istoric, "-1") != 0)
+                                if(h->nextHistory->istoric == NULL) fprintf(fisier_out, "%s", h->istoric);
+                                else fprintf(fisier_out, "%s, ", h->istoric);
 							h = h->nextHistory;
 						}
 						fprintf(fisier_out, "])\n");
@@ -261,13 +263,13 @@ void add_history(CARD **card, char History[70])
 {
 	history *elem = (history*)calloc(1, sizeof(history));
  	strcpy(elem->istoric, History);
- 	if((*card)->History == NULL) 
+ 	if((*card)->History == NULL)
  	{
  		elem->nextHistory = NULL;
  		(*card)->History = elem;
 
  	}
- 	else 
+ 	else
  	{
  		elem -> nextHistory = (*card)->History;
  		(*card)->History = elem;
@@ -288,11 +290,11 @@ void insert_card(LC *lc, char card_number[30], char pin[6], FILE *fisier_out)
 			fprintf(fisier_out, "Invalid PIN\n");
 			sprintf(hist, "%s %s %s %s%s", "(FAIL,", "insert_card", card_number, pin,")");
 			if(c->strike == 3) {strcpy(c->status, "LOCKED");fprintf(fisier_out, "The card is blocked. Please contact the administrator.\n");}
-		}	
+		}
 	}
 	else if(strcmp(c->pin, c->pin_initial) == 0 )
 		{
-			if(c->strike == 3) 
+			if(c->strike == 3)
 			{
 				strcpy(c->status, "LOCKED");
 				fprintf(fisier_out, "The card is blocked. Please contact the administrator.\n");
@@ -304,7 +306,7 @@ void insert_card(LC *lc, char card_number[30], char pin[6], FILE *fisier_out)
 				fprintf(fisier_out, "You must change your PIN.\n");
 				sprintf(hist, "%s %s %s %s%s", "(SUCCESS,", "insert_card", card_number, pin,")");
 			}
-			
+
 		}
 	else if(strcmp(c->pin, c->pin_initial) != 0)
 			sprintf(hist, "%s %s %s %s%s", "(SUCCESS,", "insert_card", card_number, pin,")");
@@ -346,7 +348,7 @@ void cash_withdrawal(LC *lc, char card_number[30], unsigned int suma, FILE *fisi
 	if(suma % 10 != 0)
 	{
 		fprintf(fisier_out, "The requested amount must be multiple of 10\n");
-		sprintf(hist, "%s %s %s %d%s", "(FAIL,", "cash_withdrawal", card_number, suma,")"); 
+		sprintf(hist, "%s %s %s %d%s", "(FAIL,", "cash_withdrawal", card_number, suma,")");
 	}
 	else if(suma > c->balance)
 	{
@@ -377,7 +379,8 @@ void pin_change(LC *lc, char card_number[30], char pin[6], FILE *fisier_out)
 	CARD *c = find_card(lc, card_number);
 	char hist[70];
 	int ok = 0;
-	for(int i = 0; i < strlen(pin); i++)
+	int i;
+	for(i = 0; i < strlen(pin); i++)
 	{
 		if(!isdigit(pin[i]))
 		{
@@ -431,26 +434,17 @@ void transfer_funds(LC* lc, char card_number_source[30], char card_number_dest[3
 			sprintf(hist, "%s %s %s %s %d%s", "(SUCCESS,", "transfer_funds", card_number_source, card_number_dest, suma,")");
 			add_history(&card_sursa, hist);
 			add_history(&card_dest, hist);
-		}	
+		}
 }
 
 void remove_history(CARD **card, char hist[70])
 {
 	history *p = (*card)->History;
-	if(strcmp(p->istoric, hist) == 0)
-	{
-		history *q = p;
-		p = p -> nextHistory;
-		free(q);
-	}
-	else
-	{
-		history *q = p;
-		while (strcmp(q->nextHistory->istoric, hist) != 0 && q) q = q->nextHistory;
-		history *a = q->nextHistory;
-		q->nextHistory = a->nextHistory;
-		free(a);
-	}
+	while(p!=NULL)
+    {
+        if(strcmp(p->istoric, hist) == 0) {strcpy(p->istoric, "-1"); return;}
+        p = p->nextHistory;
+    }
 }
 
 void reverse_transaction(LC *lc, char card_number_source[30], char card_number_dest[30], unsigned int suma, FILE *fisier_out)
@@ -482,7 +476,7 @@ void unblock_card(LC *lc, char card_number[30], FILE *fisier_out)
 
 int main()
 {
-	FILE* fisier_in = fopen("input.in", "r");
+	FILE* fisier_in = fopen("intrare.txt", "r");
 	FILE* fisier_out = fopen("output.out", "w");
 
 	unsigned int nr_max_carduri;
