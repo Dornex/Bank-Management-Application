@@ -17,51 +17,51 @@ typedef struct CARD{
 	char card_number[30];
 	char cvv[5];
 	unsigned int balance;
-	int inserted;
 	int poz;
+	int poz_veche;
 	int strike;
 	history *History;
 	struct CARD *nextCard;
 }CARD;
 
 typedef struct LSC{
-	unsigned int poz;
-	unsigned int afis_zero;
-	unsigned int nr_max_carduri;
-	unsigned int max_poz;
-	int nr_carduri;
-	struct LSC *nextLSC;
 	CARD *nextCard;
 }LSC;
 
 typedef struct LC{
 	LSC *infoLSC;
 	int nr_max_carduri;
+	int nr_carduri;
+	int poz;
+	int nr_carduri_totale;
+	struct LC *nextLC;
 }LC;
 
-void add_LSC(LC **lc, unsigned int poz)
+void add_LC(LC **lc, unsigned int poz)
 {
- 	LSC *elem = (LSC*)calloc(1, sizeof(LSC));
+ 	LC *elem = (LC*)calloc(1, sizeof(LC));
+ 	LSC *lsc = (LSC*)calloc(1, sizeof(LSC));
+
  	elem -> nr_carduri = 0;
  	elem -> poz = poz;
+ 	elem -> infoLSC = lsc;
  	elem -> nr_max_carduri = (*lc) -> nr_max_carduri;
- 	elem -> nextLSC = (*lc) -> infoLSC;
- 	(*lc) -> infoLSC = elem;
+ 	elem -> nextLC = (*lc);
+ 	(*lc) = elem;
 }
 
 int verif_duplicate(LC *lc, unsigned int poz, char card_number[30])
 {
-	LSC *p = lc -> infoLSC;
+	LC *p = lc;
 
 	while(p!=NULL)
 	{
 		if(p->poz == poz) break;
-		p = p->nextLSC;
+		p = p->nextLC;
 	}
-
 	if(p!=NULL)
 	{
-		CARD* card = p->nextCard;
+		CARD* card = p->infoLSC->nextCard;
 		while(card!=NULL)
 		{
             if(strcmp(card->card_number, card_number) == 0) return 1;
@@ -74,9 +74,9 @@ int verif_duplicate(LC *lc, unsigned int poz, char card_number[30])
 int calculare_pozitie(LC *lc, char card_number[30])
 {
 	unsigned int suma = 0;
-
 	char aux[30];
 	strcpy(aux, card_number);
+
 	int i;
 	for(i = 0; i < strlen(aux); i++)
 	{
@@ -86,19 +86,17 @@ int calculare_pozitie(LC *lc, char card_number[30])
 	return suma % (lc -> nr_max_carduri);
 }
 
-CARD* find_card(LC *lc, char card_number[30])
+CARD* find_card(LC **lc, char card_number[30])
 {
-	unsigned int poz = calculare_pozitie(lc, card_number);
-
-	LSC *p = lc -> infoLSC;
+	unsigned int poz = calculare_pozitie((*lc), card_number);
+	LC *p = (*lc);
 
 	while(p!=NULL)
 	{
 		if(p->poz == poz) break;
-		p = p->nextLSC;
+		p = p->nextLC;
 	}
-
-	CARD* c = p->nextCard;
+	CARD* c = p->infoLSC->nextCard;
 	if(p!=NULL)
 	{
 		while(c!=NULL)
@@ -110,18 +108,18 @@ CARD* find_card(LC *lc, char card_number[30])
 	return c;
 }
 
-void delete_card(LC **lc, char card_number[30], int *afis_zero)
+void delete_card(LC **lc, char card_number[30])
 {
-	LSC *p = (*lc)->infoLSC;
+	LC *p = (*lc);
 	while(p!=NULL)
 	{
-		if(p->nextCard != NULL)
+		if(p->infoLSC->nextCard != NULL)
 		{
-			CARD *c = p->nextCard;
-			CARD *d = p->nextCard->nextCard;
+			CARD *c = p->infoLSC->nextCard;
+			CARD *d = p->infoLSC->nextCard->nextCard;
 			if(strcmp(c->card_number, card_number) == 0)
 			{
-				p->nextCard = d;
+				p->infoLSC->nextCard = d;
 				free(c);
 				p->nr_carduri--;
 			}
@@ -135,7 +133,7 @@ void delete_card(LC **lc, char card_number[30], int *afis_zero)
 
 				if(d!=NULL)
 				{
-					CARD*t = d;
+					CARD *t = d;
 					d = d->nextCard;
 					c->nextCard = d;
 					p->nr_carduri --;
@@ -143,30 +141,27 @@ void delete_card(LC **lc, char card_number[30], int *afis_zero)
 				}
 			}
 		}
-		p = p->nextLSC;
+		p = p->nextLC;
 	}
 }
 
-CARD *add_info_card(char card_number[30], char pin[6], char expiry_date[10], char cvv[5], char nume[30], int poz)
+CARD *add_info_card(char card_number[30], char pin[6], char expiry_date[10], char cvv[5], int poz)
 {
 	CARD *card = (CARD *)calloc(1, sizeof(CARD));
-
 	strcpy(card -> status, "NEW");
 	strcpy(card -> card_number, card_number);
 	strcpy(card -> pin, pin);
 	strcpy(card -> pin_initial, pin);
-	strcpy(card->expiry_date, expiry_date);
-	strcpy(card->nume, nume);
+	strcpy(card -> expiry_date, expiry_date);
 	strcpy(card -> cvv, cvv);
 	card -> History = NULL;
 	card -> strike = 0;
 	card -> poz = poz;
-	card -> inserted = 0;
 	card -> balance = 0;
 	return card;
 }
 
-void add_card(char card_number[30], char pin[6], char expiry_date[10], char cvv[5], char nume[30], LC **lc, FILE *fisier_out, int *poz_max, int *afis_zero)
+void add_card(char card_number[30], char pin[6], char expiry_date[10], char cvv[5], LC **lc, FILE *fisier_out, int *poz_max)
 {
 	unsigned int poz = calculare_pozitie((*lc), card_number);
 	if(poz > (*poz_max)) (*poz_max) = poz;
@@ -174,26 +169,26 @@ void add_card(char card_number[30], char pin[6], char expiry_date[10], char cvv[
 	if(verif_duplicate((*lc), poz, card_number) == 1) fprintf(fisier_out, "The card already exists\n");
 	else
 	{
-		LSC *p = (*lc) -> infoLSC;
+		LC *p = (*lc);
 		CARD *card = (CARD*)calloc(1,sizeof(CARD));
 
 		while(p != NULL)
 		{
 			if(p->poz == poz) break;
-			p = p->nextLSC;
+			p = p->nextLC;
 		}
 
-		card = add_info_card(card_number, pin, expiry_date, cvv, nume, poz);
+		card = add_info_card(card_number, pin, expiry_date, cvv, poz);
 		if(p == NULL)
 		{
-			add_LSC(lc, poz);
+			add_LC(lc, poz);
 			(*lc)->infoLSC->nextCard = card;
-			(*lc)->infoLSC->nr_carduri = (*lc)->infoLSC->nr_carduri + 1;
+			(*lc)->nr_carduri = (*lc)->nr_carduri + 1;
 		}
 		else
 		{
-			card -> nextCard = p -> nextCard;
-			p -> nextCard = card;
+			card -> nextCard = p -> infoLSC -> nextCard;
+			p -> infoLSC -> nextCard = card;
 			p -> nr_carduri = p -> nr_carduri + 1;
 		}
 	}
@@ -201,7 +196,7 @@ void add_card(char card_number[30], char pin[6], char expiry_date[10], char cvv[
 
 void show_card(LC *lc, char card_number[30], FILE *fisier_out)
 {
-	CARD *card = find_card(lc, card_number);
+	CARD *card = find_card(&lc, card_number);
 	fprintf(fisier_out, "(card number: %s, PIN: %s, expiry date: %s, CVV: %s, balance: %d, status: %s, history: [", card->card_number, card->pin, card->expiry_date, card->cvv, card->balance, card->status);
 	history *h = card->History;
 	while(h!=NULL)
@@ -209,29 +204,28 @@ void show_card(LC *lc, char card_number[30], FILE *fisier_out)
 		if(h->nextHistory->istoric == NULL) fprintf(fisier_out, "%s", h->istoric);
 		else fprintf(fisier_out, "%s, ", h->istoric);
 		h = h->nextHistory;
-
 	}
 	fprintf(fisier_out, "])\n");
 }
 
-void show(LC *lc, FILE *fisier_out, int poz_max, int afis_zero)
+void show(LC *lc, FILE *fisier_out, int poz_max)
 {
 	int i;
 	for(i = 0; i <= poz_max; i++)
 	{
-		LSC *p = lc->infoLSC;
+		LC *p = lc;
 		while(p!=NULL)
 		{
 			if(p->poz == i) break;
-			p = p->nextLSC;
+			p = p->nextLC;
 		}
-
 		if(p!=NULL)
-			{if(p->nr_carduri == 0) fprintf(fisier_out, "pos%d: []\n",i);
+			{
+				if(p->nr_carduri == 0) fprintf(fisier_out, "pos%d: []\n",i);
 				else if(p!=NULL)
 				{
 					fprintf(fisier_out, "pos%d: [\n", i);
-					CARD *c = p->nextCard;
+					CARD *c = p->infoLSC->nextCard;
 					while(c!=NULL)
 					{
 						fprintf(fisier_out, "(card number: %s, PIN: %s, expiry date: %s, CVV: %s, balance: %d, status: %s, history: [", c->card_number, c->pin, c->expiry_date, c->cvv, c->balance, c->status);
@@ -239,8 +233,14 @@ void show(LC *lc, FILE *fisier_out, int poz_max, int afis_zero)
 						while(h!=NULL)
                         {
                             if(strcmp(h->istoric, "-1") != 0)
+                            {
                                 if(h->nextHistory->istoric == NULL) fprintf(fisier_out, "%s", h->istoric);
-                                else fprintf(fisier_out, "%s, ", h->istoric);
+                                else 
+                                {	
+                                	if(h->nextHistory->nextHistory->istoric == NULL && strcmp(h->nextHistory->istoric, "-1") == 0) fprintf(fisier_out, "%s", h->istoric);
+                                	else fprintf(fisier_out, "%s, ", h->istoric);
+                                }
+                            }
 							h = h->nextHistory;
 						}
 						fprintf(fisier_out, "])\n");
@@ -253,12 +253,6 @@ void show(LC *lc, FILE *fisier_out, int poz_max, int afis_zero)
 		}
 }
 
-void creare_history(char *hist, char rezultat[10], char operatie[15], char card_number_sursa[30], char card_number_dest[30], char pin[6], int sum)
-{
-	if(sum == -1) sprintf(hist, "%s %s %s %s%s", rezultat, operatie, card_number_sursa, card_number_dest, pin);
-	else sprintf(hist, "%s %s %s %s%s%d", rezultat, operatie, card_number_sursa, card_number_dest, pin, sum);
-}
-
 void add_history(CARD **card, char History[70])
 {
 	history *elem = (history*)calloc(1, sizeof(history));
@@ -267,7 +261,6 @@ void add_history(CARD **card, char History[70])
  	{
  		elem->nextHistory = NULL;
  		(*card)->History = elem;
-
  	}
  	else
  	{
@@ -276,11 +269,11 @@ void add_history(CARD **card, char History[70])
  	}
 }
 
-void insert_card(LC *lc, char card_number[30], char pin[6], FILE *fisier_out)
+void insert_card(LC **lc, char card_number[30], char pin[6], FILE *fisier_out)
 {
 	CARD *c = find_card(lc, card_number);
-
 	char hist[70];
+
 	if(strcmp(c->pin, pin) != 0)
 	{
 		if(c->strike == 3) {strcpy(c->status, "LOCKED");fprintf(fisier_out, "The card is blocked. Please contact the administrator.\n");}
@@ -303,19 +296,25 @@ void insert_card(LC *lc, char card_number[30], char pin[6], FILE *fisier_out)
 			else
 			{
 				c->strike = 0;
-				fprintf(fisier_out, "You must change your PIN.\n");
+				if(strcmp(c->status, "ACTIVE") != 0) fprintf(fisier_out, "You must change your PIN.\n");
 				sprintf(hist, "%s %s %s %s%s", "(SUCCESS,", "insert_card", card_number, pin,")");
 			}
-
 		}
 	else if(strcmp(c->pin, c->pin_initial) != 0)
-			sprintf(hist, "%s %s %s %s%s", "(SUCCESS,", "insert_card", card_number, pin,")");
+			{
+				if(c->strike == 3)
+				{
+					fprintf(fisier_out, "The card is blocked. Please contact the administrator.\n");
+					sprintf(hist, "%s %s %s %s%s", "(FAIL,", "insert_card", card_number, pin,")");
+				}
+				else sprintf(hist, "%s %s %s %s%s", "(SUCCESS,", "insert_card", card_number, pin,")");
+			}
 	add_history(&c, hist);
 }
 
 void cancel(LC *lc, char card_number[30], FILE *fisier_out)
 {
-	CARD *c = find_card(lc, card_number);
+	CARD *c = find_card(&lc, card_number);
 	char hist[70];
 	sprintf(hist, "%s %s %s%s", "(SUCCESS,", "cancel", card_number,")");
 	add_history(&c, hist);
@@ -323,9 +322,8 @@ void cancel(LC *lc, char card_number[30], FILE *fisier_out)
 
 void recharge(LC *lc, char card_number[30], unsigned int suma, FILE *fisier_out)
 {
-	CARD* c = find_card(lc, card_number);
+	CARD* c = find_card(&lc, card_number);
 	char hist[70];
-
 	if(suma % 10 != 0)
 	{
 		fprintf(fisier_out, "The added amount must be multiple of 10\n");
@@ -342,9 +340,8 @@ void recharge(LC *lc, char card_number[30], unsigned int suma, FILE *fisier_out)
 
 void cash_withdrawal(LC *lc, char card_number[30], unsigned int suma, FILE *fisier_out)
 {
-	CARD* c = find_card(lc, card_number);
+	CARD* c = find_card(&lc, card_number);
 	char hist[70];
-
 	if(suma % 10 != 0)
 	{
 		fprintf(fisier_out, "The requested amount must be multiple of 10\n");
@@ -366,9 +363,8 @@ void cash_withdrawal(LC *lc, char card_number[30], unsigned int suma, FILE *fisi
 
 void balance_inquiry(LC *lc, char card_number[30], FILE *fisier_out)
 {
-	CARD* c = find_card(lc, card_number);
+	CARD* c = find_card(&lc, card_number);
 	char hist[70];
-
 	fprintf(fisier_out, "%d\n", c->balance);
 	sprintf(hist, "%s %s %s%s", "(SUCCESS,", "balance_inquiry", card_number,")");
 	add_history(&c, hist);
@@ -376,7 +372,7 @@ void balance_inquiry(LC *lc, char card_number[30], FILE *fisier_out)
 
 void pin_change(LC *lc, char card_number[30], char pin[6], FILE *fisier_out)
 {
-	CARD *c = find_card(lc, card_number);
+	CARD *c = find_card(&lc, card_number);
 	char hist[70];
 	int ok = 0;
 	int i;
@@ -390,7 +386,6 @@ void pin_change(LC *lc, char card_number[30], char pin[6], FILE *fisier_out)
 			break;
 		}
 	}
-
 	if(ok == 0)
 	{
 		if(strlen(pin)!=4)
@@ -410,10 +405,9 @@ void pin_change(LC *lc, char card_number[30], char pin[6], FILE *fisier_out)
 
 void transfer_funds(LC* lc, char card_number_source[30], char card_number_dest[30], unsigned int suma, FILE *fisier_out)
 {
-	CARD* card_sursa = find_card(lc, card_number_source);
-	CARD* card_dest = find_card(lc, card_number_dest);
+	CARD* card_sursa = find_card(&lc, card_number_source);
+	CARD* card_dest = find_card(&lc, card_number_dest);
 	char hist[70];
-
 	if(suma % 10 != 0)
 	{
 		fprintf(fisier_out, "The transferred amount must be multiple of 10\n");
@@ -449,10 +443,9 @@ void remove_history(CARD **card, char hist[70])
 
 void reverse_transaction(LC *lc, char card_number_source[30], char card_number_dest[30], unsigned int suma, FILE *fisier_out)
 {
-	CARD *card_source = find_card(lc, card_number_source);
-	CARD *card_dest = find_card(lc, card_number_dest);
+	CARD *card_source = find_card(&lc, card_number_source);
+	CARD *card_dest = find_card(&lc, card_number_dest);
 	char hist[70], hist2[70];
-
 	if(card_dest->balance < suma) fprintf(fisier_out, "The transaction cannot be reversed\n");
 	else
 	{
@@ -467,29 +460,63 @@ void reverse_transaction(LC *lc, char card_number_source[30], char card_number_d
 	}
 }
 
-void unblock_card(LC *lc, char card_number[30], FILE *fisier_out)
+void unblock_card(LC **lc, char card_number[30])
 {
 	CARD *card = find_card(lc, card_number);
 	strcpy(card->status, "ACTIVE");
 	card->strike = 0;
 }
 
+void copiere_history(LC **lc, char card_number[30], history *hist)
+{
+	CARD *card = find_card(lc, card_number);
+	card->History = hist;
+}
+
+void redimensionare_baza(LC **lc, int *poz_max, FILE* fisier_out)
+{
+	(*poz_max) = 0;
+	(*lc)->nr_max_carduri = 2 * (*lc)->nr_max_carduri;
+	LC *p = (*lc);
+
+	while(p!=NULL)
+	{
+		CARD *card = p->infoLSC->nextCard;
+		while(card!=NULL)
+		{
+			int poz = calculare_pozitie((*lc), card->card_number);
+			CARD *card_nou = (CARD*)calloc(1, sizeof(CARD));
+			CARD *card_aux = (CARD*)calloc(1, sizeof(CARD));
+
+			card_aux->nextCard = card->nextCard;
+			card_nou = add_info_card(card->card_number, card->pin, card->expiry_date, card->cvv, poz);
+			card_nou->History = card->History;
+
+			delete_card(lc, card->card_number);
+			add_card(card_nou->card_number, card_nou->pin, card_nou->expiry_date, card_nou->cvv, lc , fisier_out, poz_max);
+
+			//copiere_history(lc, card_nou->card_number, card_nou->History);
+			card = card_aux -> nextCard;
+		}
+		p = p -> nextLC;
+	}
+}
+
 int main()
 {
-	FILE* fisier_in = fopen("intrare.txt", "r");
+	FILE* fisier_in = fopen("input.in", "r");
 	FILE* fisier_out = fopen("output.out", "w");
 
+	int nr_carduri_totale = 0, poz_max = 0;
 	unsigned int nr_max_carduri;
 	fscanf(fisier_in, "%d", &nr_max_carduri);
 
 	LC *lc = (LC*)calloc(1, sizeof(LC));
 	LSC *lsc = (LSC*)calloc(1, sizeof(LSC));
-	lsc->poz = 0;
-
+	lc->poz = 0;
+	lc->nr_carduri_totale = 0;
 	lc->nr_max_carduri = nr_max_carduri;
 	lc->infoLSC = lsc;
-
-	int poz_max = 0, afis_zero = 0;
 
 	while(!feof(fisier_in))
 	{
@@ -500,12 +527,16 @@ int main()
 		if(strcmp(optiune, "add_card") == 0)
 		{
 			fscanf(fisier_in, "%s %s %s %s", card_number, pin, expiry_date, cvv);
-			add_card(card_number, pin, expiry_date, cvv, "Gigel", &lc, fisier_out, &poz_max, &afis_zero);
+			int pozitie = calculare_pozitie(lc, card_number);
+			if(verif_duplicate(lc, pozitie, card_number) != 1) nr_carduri_totale++;
+
+			if(nr_carduri_totale > lc->nr_max_carduri) redimensionare_baza(&lc, &poz_max, fisier_out);
+			add_card(card_number, pin, expiry_date, cvv, &lc, fisier_out, &poz_max);
 		}
 		else if(strcmp(optiune, "insert_card") == 0)
 			{
 				fscanf(fisier_in, "%s %s", card_number, pin);
-				insert_card(lc, card_number, pin, fisier_out);
+				insert_card(&lc, card_number, pin, fisier_out);
 			}
 			else if(strcmp(optiune, "recharge") == 0)
 			{
@@ -541,9 +572,9 @@ int main()
 				int nr = 0;
 				strcpy(card_number, "-1");
 				fseek(fisier_in, -strlen(optiune), SEEK_CUR);
+
 				fgets(optiune, 30,  fisier_in);
 				char *p = strtok(optiune, " ");
-
 				while(p!=NULL)
 				{
 					nr++;
@@ -551,14 +582,14 @@ int main()
 					if(nr == 2) {strcpy(card_number, p); card_number[strlen(card_number)-1] = '\0';}
 					p = strtok(NULL, " ");
 				}
-
 				if(strcmp(card_number, "-1") != 0) show_card(lc, card_number, fisier_out);
-				else show(lc, fisier_out, poz_max, afis_zero);
+				else show(lc, fisier_out, poz_max);
 			}
 			else if(strcmp(optiune, "delete_card") == 0)
 			{
+				nr_carduri_totale--;
 				fscanf(fisier_in, "%s", card_number);
-				delete_card(&lc, card_number, &afis_zero);
+				delete_card(&lc, card_number);
 			}
 			else if(strcmp(optiune, "cancel") == 0)
 			{
@@ -568,20 +599,18 @@ int main()
 			else if(strcmp(optiune, "unblock_card") == 0)
 			{
 				fscanf(fisier_in, "%s", card_number);
-				unblock_card(lc, card_number, fisier_out);
+				unblock_card(&lc, card_number);
 			}
 			else if(strcmp(optiune, "reverse_transaction") == 0)
 			{
 				int suma;
 				char card_number_source[30], card_number_dest[30];
 				fscanf(fisier_in, "%s %s %d", card_number_source, card_number_dest, &suma);
-				printf("%s %s %s %d\n", optiune, card_number_source, card_number_dest, suma);
 				reverse_transaction(lc, card_number_source, card_number_dest, suma, fisier_out);
 			}
 			strcpy(optiune, "");
 	}
 	fclose(fisier_in);
 	fclose(fisier_out);
-
 	return 0;
 }
