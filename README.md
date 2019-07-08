@@ -1,2 +1,2 @@
 # Bank-Management-Application
-A application that simulates a bank
+A application that simulates a ATM
